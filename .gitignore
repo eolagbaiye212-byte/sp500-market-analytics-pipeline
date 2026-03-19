@@ -214,3 +214,4 @@ __marimo__/
 data_storage/
 logs/
 main.py
+etl_log_progress.py
