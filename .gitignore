@@ -209,3 +209,8 @@ __marimo__/
 
 # Parquet files
 *.parquet
+
+# Project-specific exclusions
+data_storage/
+logs/
+main.py
