@@ -46,33 +46,30 @@ Raw Data (yfinance API)
 ## Project Structure
 
 ```
-Data Engineering/
-├── Airflow/
-│   ├── docker-compose.yaml          # Full Airflow cluster setup
-│   ├── Dockerfile                   # Custom image with dependencies
-│   ├── dags/
-│   │   └── market_pipeline.py       # Airflow DAG definition
-│   ├── config/
-│   │   └── airflow.cfg              # Airflow configuration
-│   ├── logs/                        # Execution logs
-│   └── plugins/                     # Custom plugins
-├── Financial Market Analysis/
-│   ├── main.py                      # Standalone execution script
-│   ├── etl_log_progress.py          # Logging utility
-│   ├── validation_queries.sql       # SQL validation queries
-│   └── data_storage/
-│   └── medallion_arch/
-│       ├── bronze/
-│       │   ├── fetch_tickers.py         # Fetch S&P 500 tickers
-│       │   └── ingest_data_bronze.py    # Bronze layer ingestion
-│       ├── silver/
-│       │   └── clean_data_silver.py     # Silver layer transformation
-│       └── gold/
+sp500-market-analytics-pipeline/
+├── dags/
+│   └── market_pipeline.py           # Airflow DAG definition
+├── config/
+│   └── airflow.cfg                  # Airflow configuration
+├── medallion_arch/
+│   ├── bronze/
+│   │   ├── fetch_tickers.py         # Fetch S&P 500 tickers
+│   │   └── ingest_data_bronze.py    # Bronze layer ingestion
+│   ├── silver/
+│   │   └── clean_data_silver.py     # Silver layer transformation
+│   └── gold/
 │       ├── get_engine.py            # Database connection
 │       ├── load_into_db.py          # Data loading
 │       └── modeling_gold.py         # Analytics modeling
+├── main.py                          # Standalone execution script
+├── etl_log_progress.py              # Logging utility
+├── validation_queries.sql           # SQL validation queries
+├── Dockerfile                       # Custom Airflow image with project dependencies
+├── docker-compose.yaml              # Full Airflow cluster setup
 └── README.md
 ```
+
+Airflow creates the `logs/` and `plugins/` folders when the cluster starts; they are not tracked in the repository.
 
 ## Prerequisites
 
@@ -88,8 +85,8 @@ Data Engineering/
 
 1. **Clone the repository**
    ```bash
-   git clone <repository-url>
-   cd "Data Engineering/Financial Market Analysis"
+   git clone https://github.com/eolagbaiye212-byte/sp500-market-analytics-pipeline.git
+   cd sp500-market-analytics-pipeline
    ```
 
 2. **Create virtual environment**
@@ -100,28 +97,40 @@ Data Engineering/
 
 3. **Install dependencies**
    ```bash
-   pip install pandas yfinance sqlalchemy psycopg2-binary python-dotenv
+   pip install pandas pyarrow yfinance requests sqlalchemy psycopg2-binary
    ```
 
 4. **Set up PostgreSQL database**
    - Create a PostgreSQL database
    - Set environment variables (see Environment Variables section)
 
+5. **Set output paths**
+   - `main.py` defines the Bronze, Silver, and Gold Parquet paths and the log file path as absolute paths. Update `bronze_path`, `silver_path`, `gold_path`, and `log_file` to a folder on your machine (for example, a `data_storage/` folder inside the project).
+
 ### Option 2: Airflow Mode
 
-1. **Navigate to Airflow directory**
+1. **Clone the repository** (if you haven't already)
    ```bash
-   cd "Data Engineering/Airflow"
+   git clone https://github.com/eolagbaiye212-byte/sp500-market-analytics-pipeline.git
+   cd sp500-market-analytics-pipeline
    ```
 
-2. **Start the Airflow cluster**
-   ```bash
-   docker-compose up -d
+2. **Create a `.env` file** in the project root with the database variables (see Environment Variables section). Docker Compose loads this file into every Airflow container.
+
+3. **Point the project volume at your clone**
+   - In `docker-compose.yaml`, the last entry under `volumes:` mounts the project code into `/opt/airflow/financial_market_analysis`, which is where the DAG imports `medallion_arch` from and writes its Parquet files. Replace the absolute path on the left side of that entry with the path to your clone, for example:
+   ```yaml
+   - .:/opt/airflow/financial_market_analysis
    ```
 
-3. **Access Airflow UI**
+4. **Build and start the Airflow cluster**
+   ```bash
+   docker compose up -d --build
+   ```
+
+5. **Access Airflow UI**
    - Open http://localhost:8080
-   - Default credentials: admin/admin
+   - Default credentials: `airflow` / `airflow` (set `_AIRFLOW_WWW_USER_USERNAME` and `_AIRFLOW_WWW_USER_PASSWORD` in `.env` to change them)
 
 ## Environment Variables
 
@@ -135,7 +144,10 @@ Set the following environment variables for database connectivity:
 | `PROJECT_DB_PORT` | Database port | `5432` |
 | `PROJECT_DB_NAME` | Database name | `market_analytics` |
 
-Create a `.env` file in the project root:
+- **Airflow mode:** create a `.env` file in the project root; Docker Compose loads it automatically.
+- **Standalone mode:** `main.py` does not read `.env`, so export these variables in your shell before running it.
+
+Example `.env` file:
 
 ```env
 PROJECT_DB_USER=postgres
@@ -158,8 +170,8 @@ PROJECT_DB_NAME=market_analytics
 ### Airflow Orchestration
 
 1. Start the Airflow cluster (see Setup)
-2. In the Airflow UI, enable the `market_pipeline` DAG
-3. Trigger the DAG manually or wait for scheduled execution
+2. In the Airflow UI, enable the `market_pipeline` DAG (new DAGs start paused)
+3. Trigger the DAG manually or wait for the scheduled run (6:00 PM Eastern, Monday through Friday)
 
 ## Example Output
 
@@ -196,7 +208,7 @@ ORDER BY performance_rank;
 
 ## Author
 
-**Eolagbaiye Olagbaiye**  
+**Emmanuel Olagbaiye**  
 GitHub: [github.com/eolagbaiye212-byte](https://github.com/eolagbaiye212-byte)
 
 ---
